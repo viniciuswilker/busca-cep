@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-type CepStruct struct {
+type ViaCEP struct {
 	Cep         string `json:"cep"`
 	Logradouro  string `json:"logradouro"`
 	Complemento string `json:"complemento"`
@@ -25,10 +25,9 @@ type CepStruct struct {
 }
 
 func main() {
-	port := 8080
-	msg := fmt.Sprintf("Rodando servidor na porta: %v", port)
-	fmt.Println(msg)
 
+	port := 8080
+	fmt.Println("SERVIDOR INICIANDO")
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", buscarCepHandler)
@@ -37,11 +36,14 @@ func main() {
 }
 
 func buscarCepHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
 	cepParam := r.URL.Query().Get("cep")
-
 	if cepParam == "" {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -51,33 +53,31 @@ func buscarCepHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(cepBusca)
 	json.NewEncoder(w).Encode(cepBusca)
 
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
-
+	w.WriteHeader(http.StatusOK)
 }
 
-func BuscarCep(cep string) (*CepStruct, error) {
+func BuscarCep(cep string) (*ViaCEP, error) {
 
-	res, erro := http.Get("http://viacep.com.br/ws/" + cep + "/json/")
-
+	resp, erro := http.Get("http://viacep.com.br/ws/" + cep + "/json/")
 	if erro != nil {
 		return nil, erro
 	}
 
-	corpoReq, erro := io.ReadAll(res.Body)
+	defer resp.Body.Close()
+
+	corpoReq, erro := io.ReadAll(resp.Body)
 	if erro != nil {
 		return nil, erro
 	}
 
-	var cepFinal CepStruct
-
-	if erro := json.Unmarshal(corpoReq, &cepFinal); erro != nil {
+	var cepResultado ViaCEP
+	if erro := json.Unmarshal(corpoReq, &cepResultado); erro != nil {
 		return nil, erro
 	}
 
-	return &cepFinal, nil
+	return &cepResultado, nil
 
 }
